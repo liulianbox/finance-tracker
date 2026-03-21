@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>💰 记账本</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 16px;
+            padding-bottom: 80px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        h2, h3 {
+            color: #333;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .stat {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+        }
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 16px 0;
+        }
+        .category-btn {
+            padding: 16px 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+        .category-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+            transform: scale(1.05);
+        }
+        .category-btn:active {
+            transform: scale(0.95);
+        }
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            margin: 8px 0;
+            transition: border-color 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 8px;
+        }
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        .record-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .record-item:last-child {
+            border: none;
+        }
+        .record-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        .record-info {
+            flex: 1;
+        }
+        .record-desc {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+        .record-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
+        }
+        .record-amount {
+            font-size: 18px;
+            font-weight: bold;
+            color: #f5576c;
+        }
+        .empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+        .toast {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            z-index: 9999;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>💰 本月进度 (2026-03)</h2>
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">收入</div>
+                <div class="stat-value">¥<span id="income">32,500</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">支出</div>
+                <div class="stat-value">¥<span id="expense">0</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">结余</div>
+                <div class="stat-value">¥<span id="balance">32,500</span></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">目标存</div>
+                <div class="stat-value">¥21,000</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>✏️ 快速记账</h3>
+        <div class="category-grid">
+            <button class="category-btn" data-category="餐饮" data-icon="🍜">
+                <span style="font-size:24px">🍜</span>
+                <span>餐饮</span>
+            </button>
+            <button class="category-btn" data-category="交通" data-icon="🚗">
+                <span style="font-size:24px">🚗</span>
+                <span>交通</span>
+            </button>
+            <button class="category-btn" data-category="护肤" data-icon="💄">
+                <span style="font-size:24px">💄</span>
+                <span>护肤</span>
+            </button>
+            <button class="category-btn" data-category="服装" data-icon="👗">
+                <span style="font-size:24px">👗</span>
+                <span>服装</span>
+            </button>
+            <button class="category-btn" data-category="宠物" data-icon="🐱">
+                <span style="font-size:24px">🐱</span>
+                <span>宠物</span>
+            </button>
+            <button class="category-btn" data-category="其他" data-icon="📦">
+                <span style="font-size:24px">📦</span>
+                <span>其他</span>
+            </button>
+        </div>
+        <input type="number" id="amount" placeholder="输入金额" inputmode="decimal">
+        <input type="text" id="note" placeholder="备注 (可选)">
+        <button class="btn-primary" onclick="save()">💾 保存记录</button>
+    </div>
+
+    <div class="card">
+        <h3>📝 今日记录</h3>
+        <div id="recordsList"></div>
+    </div>
+
+    <script>
+        let selectedCategory = '';
+        let selectedIcon = '';
+        let records = JSON.parse(localStorage.getItem('finance_records') || '[]');
+
+        // 类别按钮点击
+        document.querySelectorAll('.category-btn').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedCategory = btn.dataset.category;
+                selectedIcon = btn.dataset.icon;
+            };
+        });
+
+        // 保存记录
+        function save() {
+            const amount = parseFloat(document.getElementById('amount').value);
+            const note = document.getElementById('note').value;
+
+            if (!selectedCategory) {
+                showToast('⚠️ 请选择类别');
+                return;
+            }
+
+            if (!amount || amount <= 0) {
+                showToast('⚠️ 请输入有效金额');
+                return;
+            }
+
+            const record = {
+                id: Date.now(),
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+                category: selectedCategory,
+                icon: selectedIcon,
+                amount: amount,
+                note: note || selectedCategory
+            };
+
+            records.unshift(record);
+            localStorage.setItem('finance_records', JSON.stringify(records));
+
+            // 重置表单
+            document.getElementById('amount').value = '';
+            document.getElementById('note').value = '';
+            document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+            selectedCategory = '';
+            selectedIcon = '';
+
+            loadRecords();
+            updateStats();
+            showToast('✅ 记录成功!');
+        }
+
+        // 加载记录
+        function loadRecords() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayRecords = records.filter(r => r.date === today);
+
+            const container = document.getElementById('recordsList');
+
+            if (todayRecords.length === 0) {
+                container.innerHTML = '<div class="empty">暂无记录，开始记账吧!</div>';
+                return;
+            }
+
+            const colors = {
+                '餐饮': '#ffebee',
+                '交通': '#e3f2fd',
+                '护肤': '#fce4ec',
+                '服装': '#f3e5f5',
+                '宠物': '#fff3e0',
+                '其他': '#f5f5f5'
+            };
+
+            container.innerHTML = todayRecords.map(r => `
+                <div class="record-item">
+                    <div class="record-icon" style="background: ${colors[r.category] || '#f5f5f5'}">
+                        ${r.icon}
+                    </div>
+                    <div class="record-info">
+                        <div class="record-desc">${r.note}</div>
+                        <div class="record-time">${r.time}</div>
+                    </div>
+                    <div class="record-amount">-¥${r.amount.toFixed(0)}</div>
+                </div>
+            `).join('');
+        }
+
+        // 更新统计
+        function updateStats() {
+            const today = new Date().toISOString().split('T')[0];
+            const todayRecords = records.filter(r => r.date === today);
+            const totalExpense = todayRecords.reduce((sum, r) => sum + r.amount, 0);
+            const income = 32500;
+            const rent = 3500;
+            const balance = income - totalExpense - rent;
+
+            document.getElementById('expense').textContent = totalExpense.toLocaleString();
+            document.getElementById('balance').textContent = balance.toLocaleString();
+        }
+
+        // 提示
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        // 初始化
+        loadRecords();
+        updateStats();
+    </script>
+</body>
+</html>
