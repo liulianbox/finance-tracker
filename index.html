@@ -51,6 +51,11 @@
             padding: 12px;
             border-radius: 12px;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .goal-stat:active {
+            transform: scale(0.98);
         }
         .goal-label {
             font-size: 12px;
@@ -60,6 +65,9 @@
         .goal-value {
             font-size: 20px;
             font-weight: bold;
+        }
+        .goal-value.hidden {
+            letter-spacing: 2px;
         }
         .progress-bar {
             background: rgba(255,255,255,0.3);
@@ -418,17 +426,17 @@
     <div class="card goal-card">
         <div class="goal-title">🎯 年度资产进度</div>
         <div class="goal-stats">
-            <div class="goal-stat">
+            <div class="goal-stat" onclick="toggleAssetPrivacy('currentAssets')">
                 <div class="goal-label">现有资产</div>
-                <div class="goal-value" id="currentAssets">61万</div>
+                <div class="goal-value hidden" id="currentAssets" data-value="61万">****</div>
             </div>
-            <div class="goal-stat">
+            <div class="goal-stat" onclick="toggleAssetPrivacy('targetAssets')">
                 <div class="goal-label">储蓄目标</div>
-                <div class="goal-value">100万</div>
+                <div class="goal-value hidden" id="targetAssets" data-value="100万">****</div>
             </div>
-            <div class="goal-stat">
+            <div class="goal-stat" onclick="toggleAssetPrivacy('gapAssets')">
                 <div class="goal-label">缺口</div>
-                <div class="goal-value">39万</div>
+                <div class="goal-value hidden" id="gapAssets" data-value="39万">****</div>
             </div>
         </div>
         <div class="progress-bar">
@@ -599,6 +607,27 @@
                 };
             });
         });
+
+        // 切换资产隐私显示
+        function toggleAssetPrivacy(id) {
+            const element = document.getElementById(id);
+            const isHidden = element.classList.contains('hidden');
+            
+            if (isHidden) {
+                // 显示真实数字
+                element.textContent = element.dataset.value;
+                element.classList.remove('hidden');
+                // 3秒后自动隐藏
+                setTimeout(() => {
+                    element.textContent = '****';
+                    element.classList.add('hidden');
+                }, 3000);
+            } else {
+                // 立即隐藏
+                element.textContent = '****';
+                element.classList.add('hidden');
+            }
+        }
 
         // 加载本月数据
         function loadMonthData() {
