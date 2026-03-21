@@ -188,9 +188,26 @@
             font-weight: bold;
             cursor: pointer;
             transition: transform 0.2s;
+            margin-bottom: 12px;
         }
         .btn-primary:active {
             transform: scale(0.98);
+        }
+        .btn-secondary {
+            width: 100%;
+            padding: 14px;
+            background: white;
+            border: 2px solid #667eea;
+            color: #667eea;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-secondary:active {
+            transform: scale(0.98);
+            background: #f5f5f5;
         }
         
         /* 今日记录 */
@@ -254,6 +271,7 @@
             z-index: 9999;
             align-items: center;
             justify-content: center;
+            overflow-y: auto;
         }
         .modal.show {
             display: flex;
@@ -263,7 +281,10 @@
             border-radius: 16px;
             padding: 24px;
             width: 90%;
-            max-width: 400px;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            margin: 20px;
         }
         .modal-title {
             font-size: 18px;
@@ -299,6 +320,82 @@
         .modal-btn.confirm {
             background: #667eea;
             color: white;
+        }
+        
+        /* 历史记录弹窗 */
+        .history-filters {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 20px;
+            background: white;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        .filter-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        .history-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+        .history-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .history-stat {
+            text-align: center;
+        }
+        .history-stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        .history-stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+        .category-summary {
+            margin-bottom: 16px;
+        }
+        .category-summary-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        .category-summary-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+        .category-summary-info {
+            flex: 1;
+        }
+        .category-summary-name {
+            font-size: 14px;
+            color: #333;
+            font-weight: 500;
+        }
+        .category-summary-amount {
+            font-size: 16px;
+            font-weight: bold;
+            color: #f5576c;
         }
         
         /* 提示 */
@@ -405,6 +502,7 @@
         <input type="number" id="amount" placeholder="输入金额" inputmode="decimal">
         <input type="text" id="note" placeholder="备注 (可选)">
         <button class="btn-primary" onclick="saveRecord()">💾 保存记录</button>
+        <button class="btn-secondary" onclick="showHistory()">📊 查看历史消费流水</button>
         
         <div class="records-list" id="recordsList">
             <div class="empty">暂无记录，开始记账吧!</div>
@@ -423,6 +521,41 @@
         </div>
     </div>
 
+    <!-- 历史记录弹窗 -->
+    <div class="modal" id="historyModal">
+        <div class="modal-content">
+            <div class="modal-title">📊 历史消费流水</div>
+            
+            <!-- 月份筛选 -->
+            <div class="history-filters" id="monthFilters"></div>
+            
+            <!-- 统计卡片 -->
+            <div class="history-stats">
+                <div style="font-size:16px;font-weight:bold;margin-bottom:8px" id="historyPeriod">本月统计</div>
+                <div class="history-stats-grid">
+                    <div class="history-stat">
+                        <div class="history-stat-label">总消费</div>
+                        <div class="history-stat-value">¥<span id="historyTotal">0</span></div>
+                    </div>
+                    <div class="history-stat">
+                        <div class="history-stat-label">笔数</div>
+                        <div class="history-stat-value"><span id="historyCount">0</span>笔</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分类汇总 -->
+            <div class="category-summary" id="categorySummary"></div>
+            
+            <!-- 明细列表 -->
+            <div class="records-list" id="historyList"></div>
+            
+            <div style="margin-top:16px">
+                <button class="modal-btn confirm" style="width:100%" onclick="closeHistory()">关闭</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // 数据存储
         let records = JSON.parse(localStorage.getItem('finance_records') || '[]');
@@ -430,6 +563,25 @@
         let selectedCategory = '';
         let selectedIcon = '';
         let editType = '';
+        let historyMonth = '';
+
+        const categoryIcons = {
+            '餐饮': '🍜',
+            '交通': '🚗',
+            '护肤': '💄',
+            '服装': '👗',
+            '宠物': '🐱',
+            '其他': '📦'
+        };
+
+        const categoryColors = {
+            '餐饮': '#ffebee',
+            '交通': '#e3f2fd',
+            '护肤': '#fce4ec',
+            '服装': '#f3e5f5',
+            '宠物': '#fff3e0',
+            '其他': '#f5f5f5'
+        };
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
@@ -475,7 +627,7 @@
         // 确认编辑
         function confirmEdit() {
             const value = parseFloat(document.getElementById('modalInput').value);
-            if (!value || value < 0) {
+            if (isNaN(value) || value < 0) {
                 showToast('⚠️ 请输入有效金额');
                 return;
             }
@@ -545,18 +697,9 @@
                 return;
             }
 
-            const colors = {
-                '餐饮': '#ffebee',
-                '交通': '#e3f2fd',
-                '护肤': '#fce4ec',
-                '服装': '#f3e5f5',
-                '宠物': '#fff3e0',
-                '其他': '#f5f5f5'
-            };
-
             container.innerHTML = todayRecords.map(r => `
                 <div class="record-item">
-                    <div class="record-icon" style="background: ${colors[r.category] || '#f5f5f5'}">
+                    <div class="record-icon" style="background: ${categoryColors[r.category] || '#f5f5f5'}">
                         ${r.icon}
                     </div>
                     <div class="record-info">
@@ -570,16 +713,104 @@
 
         // 更新统计
         function updateStats() {
-            // 计算本月总消费(所有记录)
-            const currentMonth = new Date().toISOString().substring(0, 7); // 2026-03
+            const currentMonth = new Date().toISOString().substring(0, 7);
             const monthRecords = records.filter(r => r.date.startsWith(currentMonth));
             const totalExpense = monthRecords.reduce((sum, r) => sum + r.amount, 0);
-            
-            // 余额 = 进账 - 存款 - 消费
             const balance = monthData.income - monthData.saving - totalExpense;
 
             document.getElementById('monthExpense').textContent = totalExpense.toFixed(0);
             document.getElementById('monthBalance').textContent = balance.toFixed(0);
+        }
+
+        // 显示历史记录
+        function showHistory() {
+            // 获取所有有记录的月份
+            const months = [...new Set(records.map(r => r.date.substring(0, 7)))].sort().reverse();
+            
+            if (months.length === 0) {
+                showToast('⚠️ 暂无历史记录');
+                return;
+            }
+
+            // 默认显示最近一个月
+            historyMonth = months[0];
+
+            // 渲染月份筛选按钮
+            const filtersContainer = document.getElementById('monthFilters');
+            filtersContainer.innerHTML = months.map(m => `
+                <button class="filter-btn ${m === historyMonth ? 'active' : ''}" onclick="filterByMonth('${m}')">
+                    ${m}
+                </button>
+            `).join('');
+
+            // 显示该月数据
+            loadHistoryMonth(historyMonth);
+
+            document.getElementById('historyModal').classList.add('show');
+        }
+
+        // 按月份筛选
+        function filterByMonth(month) {
+            historyMonth = month;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.trim() === month);
+            });
+            loadHistoryMonth(month);
+        }
+
+        // 加载指定月份的数据
+        function loadHistoryMonth(month) {
+            const monthRecords = records.filter(r => r.date.startsWith(month));
+            const totalExpense = monthRecords.reduce((sum, r) => sum + r.amount, 0);
+
+            // 更新统计
+            document.getElementById('historyPeriod').textContent = `${month} 统计`;
+            document.getElementById('historyTotal').textContent = totalExpense.toFixed(0);
+            document.getElementById('historyCount').textContent = monthRecords.length;
+
+            // 分类汇总
+            const categoryTotals = {};
+            monthRecords.forEach(r => {
+                categoryTotals[r.category] = (categoryTotals[r.category] || 0) + r.amount;
+            });
+
+            const summaryContainer = document.getElementById('categorySummary');
+            summaryContainer.innerHTML = Object.entries(categoryTotals)
+                .sort((a, b) => b[1] - a[1])
+                .map(([cat, amount]) => `
+                    <div class="category-summary-item">
+                        <div class="category-summary-icon">${categoryIcons[cat] || '📦'}</div>
+                        <div class="category-summary-info">
+                            <div class="category-summary-name">${cat}</div>
+                        </div>
+                        <div class="category-summary-amount">¥${amount.toFixed(0)}</div>
+                    </div>
+                `).join('');
+
+            // 明细列表
+            const listContainer = document.getElementById('historyList');
+            if (monthRecords.length === 0) {
+                listContainer.innerHTML = '<div class="empty">该月暂无记录</div>';
+                return;
+            }
+
+            listContainer.innerHTML = monthRecords.map(r => `
+                <div class="record-item">
+                    <div class="record-icon" style="background: ${categoryColors[r.category] || '#f5f5f5'}">
+                        ${r.icon}
+                    </div>
+                    <div class="record-info">
+                        <div class="record-desc">${r.note}</div>
+                        <div class="record-time">${r.date} ${r.time}</div>
+                    </div>
+                    <div class="record-amount">-¥${r.amount.toFixed(0)}</div>
+                </div>
+            `).join('');
+        }
+
+        // 关闭历史记录
+        function closeHistory() {
+            document.getElementById('historyModal').classList.remove('show');
         }
 
         // 提示
