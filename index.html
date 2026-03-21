@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>💰 记账本</title>
+    <title>💰 2026年存款100万计划</title>
     <style>
         * {
             margin: 0;
@@ -17,7 +17,7 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 16px;
-            padding-bottom: 80px;
+            padding-bottom: 100px;
         }
         .card {
             background: white;
@@ -26,40 +26,124 @@
             margin-bottom: 16px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.15);
         }
-        h2, h3 {
-            color: #333;
-            margin-bottom: 12px;
+        
+        /* 年度目标卡片 */
+        .goal-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .goal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .stats {
+        .goal-stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            margin-top: 12px;
+            margin-bottom: 16px;
         }
-        .stat {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            padding: 16px;
+        .goal-stat {
+            background: rgba(255,255,255,0.2);
+            padding: 12px;
             border-radius: 12px;
             text-align: center;
         }
-        .stat-label {
+        .goal-label {
             font-size: 12px;
-            color: #666;
+            opacity: 0.9;
             margin-bottom: 6px;
         }
-        .stat-value {
+        .goal-value {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .progress-bar {
+            background: rgba(255,255,255,0.3);
+            height: 10px;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 12px;
+        }
+        .progress-fill {
+            background: white;
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .control-rules {
+            font-size: 12px;
+            line-height: 1.8;
+            opacity: 0.95;
+        }
+        .control-rules div {
+            padding: 4px 0;
+        }
+        
+        /* 本月进度卡片 */
+        .month-card {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        .month-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .month-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .month-item {
+            background: rgba(255,255,255,0.25);
+            padding: 14px;
+            border-radius: 12px;
+        }
+        .month-item.editable {
+            background: rgba(255,255,255,0.35);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .month-item.editable:active {
+            transform: scale(0.98);
+        }
+        .month-label {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 6px;
+        }
+        .month-value {
             font-size: 22px;
             font-weight: bold;
+        }
+        .month-value.small {
+            font-size: 18px;
+        }
+        .edit-hint {
+            font-size: 10px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+        
+        /* 记账区域 */
+        .record-card h3 {
             color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         .category-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 10px;
-            margin: 16px 0;
+            margin-bottom: 16px;
         }
         .category-btn {
             padding: 16px 8px;
@@ -81,17 +165,13 @@
             color: white;
             transform: scale(1.05);
         }
-        .category-btn:active {
-            transform: scale(0.95);
-        }
         input {
             width: 100%;
             padding: 14px;
             border: 2px solid #e0e0e0;
             border-radius: 12px;
             font-size: 16px;
-            margin: 8px 0;
-            transition: border-color 0.2s;
+            margin-bottom: 12px;
         }
         input:focus {
             outline: none;
@@ -108,10 +188,16 @@
             font-weight: bold;
             cursor: pointer;
             transition: transform 0.2s;
-            margin-top: 8px;
         }
         .btn-primary:active {
             transform: scale(0.98);
+        }
+        
+        /* 今日记录 */
+        .records-list {
+            margin-top: 16px;
+            max-height: 400px;
+            overflow-y: auto;
         }
         .record-item {
             display: flex;
@@ -155,49 +241,140 @@
             padding: 40px 20px;
             color: #999;
         }
+        
+        /* 弹窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.show {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            color: #333;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        .modal-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .modal-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .modal-btn.cancel {
+            background: #f5f5f5;
+            color: #666;
+        }
+        .modal-btn.confirm {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* 提示 */
         .toast {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0,0,0,0.85);
             color: white;
             padding: 16px 24px;
             border-radius: 12px;
             font-size: 16px;
-            z-index: 9999;
-            animation: fadeIn 0.3s;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translate(-50%, -60%); }
-            to { opacity: 1; transform: translate(-50%, -50%); }
+            z-index: 10000;
         }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>💰 本月进度 (2026-03)</h2>
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-label">收入</div>
-                <div class="stat-value">¥<span id="income">32,500</span></div>
+    <!-- 年度目标进度 -->
+    <div class="card goal-card">
+        <div class="goal-title">🎯 年度资产进度</div>
+        <div class="goal-stats">
+            <div class="goal-stat">
+                <div class="goal-label">现有资产</div>
+                <div class="goal-value" id="currentAssets">61万</div>
             </div>
-            <div class="stat">
-                <div class="stat-label">支出</div>
-                <div class="stat-value">¥<span id="expense">0</span></div>
+            <div class="goal-stat">
+                <div class="goal-label">储蓄目标</div>
+                <div class="goal-value">100万</div>
             </div>
-            <div class="stat">
-                <div class="stat-label">结余</div>
-                <div class="stat-value">¥<span id="balance">32,500</span></div>
+            <div class="goal-stat">
+                <div class="goal-label">缺口</div>
+                <div class="goal-value">39万</div>
             </div>
-            <div class="stat">
-                <div class="stat-label">目标存</div>
-                <div class="stat-value">¥21,000</div>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="yearProgress" style="width: 61%"></div>
+        </div>
+        <div class="control-rules">
+            <div>⭐ 每月工资必存 ≥ 21,000元</div>
+            <div>📊 日常开销 ≤ 8,000元/月</div>
+            <div>🍜 晚餐 ≤ 80元/天</div>
+            <div>💄 化妆护肤+服装 ≤ 2,500元/月</div>
+            <div>🔥 奖金目标 ≥ 20万 (关键!)</div>
+        </div>
+    </div>
+
+    <!-- 本月进度 -->
+    <div class="card month-card">
+        <div class="month-title">📊 本月进度 (2026-03)</div>
+        <div class="month-grid">
+            <div class="month-item editable" onclick="editIncome()">
+                <div class="month-label">进账</div>
+                <div class="month-value">¥<span id="monthIncome">32500</span></div>
+                <div class="edit-hint">点击编辑</div>
+            </div>
+            <div class="month-item editable" onclick="editSaving()">
+                <div class="month-label">存款</div>
+                <div class="month-value">¥<span id="monthSaving">0</span></div>
+                <div class="edit-hint">点击编辑</div>
+            </div>
+            <div class="month-item">
+                <div class="month-label">消费</div>
+                <div class="month-value">¥<span id="monthExpense">0</span></div>
+                <div class="edit-hint">自动统计</div>
+            </div>
+            <div class="month-item">
+                <div class="month-label">余额</div>
+                <div class="month-value small">¥<span id="monthBalance">32500</span></div>
+                <div class="edit-hint">自动计算</div>
             </div>
         </div>
     </div>
 
-    <div class="card">
+    <!-- 记账区域 -->
+    <div class="card record-card">
         <h3>✏️ 快速记账</h3>
         <div class="category-grid">
             <button class="category-btn" data-category="餐饮" data-icon="🍜">
@@ -227,31 +404,97 @@
         </div>
         <input type="number" id="amount" placeholder="输入金额" inputmode="decimal">
         <input type="text" id="note" placeholder="备注 (可选)">
-        <button class="btn-primary" onclick="save()">💾 保存记录</button>
+        <button class="btn-primary" onclick="saveRecord()">💾 保存记录</button>
+        
+        <div class="records-list" id="recordsList">
+            <div class="empty">暂无记录，开始记账吧!</div>
+        </div>
     </div>
 
-    <div class="card">
-        <h3>📝 今日记录</h3>
-        <div id="recordsList"></div>
+    <!-- 编辑弹窗 -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <div class="modal-title" id="modalTitle">编辑进账</div>
+            <input type="number" class="modal-input" id="modalInput" placeholder="输入金额" inputmode="decimal">
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" onclick="closeModal()">取消</button>
+                <button class="modal-btn confirm" onclick="confirmEdit()">确定</button>
+            </div>
+        </div>
     </div>
 
     <script>
+        // 数据存储
+        let records = JSON.parse(localStorage.getItem('finance_records') || '[]');
+        let monthData = JSON.parse(localStorage.getItem('month_data') || '{"income":32500,"saving":0}');
         let selectedCategory = '';
         let selectedIcon = '';
-        let records = JSON.parse(localStorage.getItem('finance_records') || '[]');
+        let editType = '';
 
-        // 类别按钮点击
-        document.querySelectorAll('.category-btn').forEach(btn => {
-            btn.onclick = () => {
-                document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                selectedCategory = btn.dataset.category;
-                selectedIcon = btn.dataset.icon;
-            };
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMonthData();
+            loadRecords();
+            updateStats();
+            
+            // 类别按钮
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    selectedCategory = btn.dataset.category;
+                    selectedIcon = btn.dataset.icon;
+                };
+            });
         });
 
+        // 加载本月数据
+        function loadMonthData() {
+            document.getElementById('monthIncome').textContent = monthData.income.toLocaleString();
+            document.getElementById('monthSaving').textContent = monthData.saving.toLocaleString();
+        }
+
+        // 编辑进账
+        function editIncome() {
+            editType = 'income';
+            document.getElementById('modalTitle').textContent = '编辑本月进账';
+            document.getElementById('modalInput').value = monthData.income;
+            document.getElementById('editModal').classList.add('show');
+            document.getElementById('modalInput').focus();
+        }
+
+        // 编辑存款
+        function editSaving() {
+            editType = 'saving';
+            document.getElementById('modalTitle').textContent = '编辑本月存款';
+            document.getElementById('modalInput').value = monthData.saving;
+            document.getElementById('editModal').classList.add('show');
+            document.getElementById('modalInput').focus();
+        }
+
+        // 确认编辑
+        function confirmEdit() {
+            const value = parseFloat(document.getElementById('modalInput').value);
+            if (!value || value < 0) {
+                showToast('⚠️ 请输入有效金额');
+                return;
+            }
+            
+            monthData[editType] = value;
+            localStorage.setItem('month_data', JSON.stringify(monthData));
+            loadMonthData();
+            updateStats();
+            closeModal();
+            showToast('✅ 更新成功');
+        }
+
+        // 关闭弹窗
+        function closeModal() {
+            document.getElementById('editModal').classList.remove('show');
+        }
+
         // 保存记录
-        function save() {
+        function saveRecord() {
             const amount = parseFloat(document.getElementById('amount').value);
             const note = document.getElementById('note').value;
 
@@ -327,15 +570,16 @@
 
         // 更新统计
         function updateStats() {
-            const today = new Date().toISOString().split('T')[0];
-            const todayRecords = records.filter(r => r.date === today);
-            const totalExpense = todayRecords.reduce((sum, r) => sum + r.amount, 0);
-            const income = 32500;
-            const rent = 3500;
-            const balance = income - totalExpense - rent;
+            // 计算本月总消费(所有记录)
+            const currentMonth = new Date().toISOString().substring(0, 7); // 2026-03
+            const monthRecords = records.filter(r => r.date.startsWith(currentMonth));
+            const totalExpense = monthRecords.reduce((sum, r) => sum + r.amount, 0);
+            
+            // 余额 = 进账 - 存款 - 消费
+            const balance = monthData.income - monthData.saving - totalExpense;
 
-            document.getElementById('expense').textContent = totalExpense.toLocaleString();
-            document.getElementById('balance').textContent = balance.toLocaleString();
+            document.getElementById('monthExpense').textContent = totalExpense.toFixed(0);
+            document.getElementById('monthBalance').textContent = balance.toFixed(0);
         }
 
         // 提示
@@ -346,10 +590,6 @@
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2000);
         }
-
-        // 初始化
-        loadRecords();
-        updateStats();
     </script>
 </body>
 </html>
