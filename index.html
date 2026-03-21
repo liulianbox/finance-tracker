@@ -567,7 +567,12 @@
     <script>
         // 数据存储
         let records = JSON.parse(localStorage.getItem('finance_records') || '[]');
-        let monthData = JSON.parse(localStorage.getItem('month_data') || '{"income":32500,"saving":0}');
+        
+        // 改进: 支持多月数据存储
+        let allMonthsData = JSON.parse(localStorage.getItem('all_months_data') || '{}');
+        const currentMonth = new Date().toISOString().substring(0, 7); // 2026-03
+        let monthData = allMonthsData[currentMonth] || {income: 32500, saving: 0};
+        
         let selectedCategory = '';
         let selectedIcon = '';
         let editType = '';
@@ -662,7 +667,11 @@
             }
             
             monthData[editType] = value;
-            localStorage.setItem('month_data', JSON.stringify(monthData));
+            
+            // 保存到多月数据结构
+            allMonthsData[currentMonth] = monthData;
+            localStorage.setItem('all_months_data', JSON.stringify(allMonthsData));
+            
             loadMonthData();
             updateStats();
             closeModal();
@@ -747,8 +756,34 @@
             const totalExpense = monthRecords.reduce((sum, r) => sum + r.amount, 0);
             const balance = monthData.income - monthData.saving - totalExpense;
 
+            // 更新本月进度
             document.getElementById('monthExpense').textContent = totalExpense.toFixed(0);
             document.getElementById('monthBalance').textContent = balance.toFixed(0);
+
+            // 更新年度资产进度
+            updateYearAssets();
+        }
+
+        // 更新年度资产数据
+        function updateYearAssets() {
+            // 计算累计存款(所有月份的存款总和)
+            const baseAssets = 610000; // 初始资产61万
+            let totalSaved = 0;
+            
+            // 累加所有月份的存款
+            for (const month in allMonthsData) {
+                totalSaved += allMonthsData[month].saving || 0;
+            }
+            
+            const currentAssets = baseAssets + totalSaved; // 当前总资产
+            const targetAssets = 1000000; // 目标100万
+            const gapAssets = targetAssets - currentAssets; // 剩余缺口
+            const progress = (currentAssets / targetAssets * 100).toFixed(0); // 进度百分比
+
+            // 更新显示(保持隐藏状态,只更新数据)
+            document.getElementById('currentAssets').dataset.value = (currentAssets / 10000).toFixed(1) + '万';
+            document.getElementById('gapAssets').dataset.value = (gapAssets / 10000).toFixed(1) + '万';
+            document.getElementById('yearProgress').style.width = progress + '%';
         }
 
         // 显示历史记录
