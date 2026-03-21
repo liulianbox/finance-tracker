@@ -573,6 +573,9 @@
         const currentMonth = new Date().toISOString().substring(0, 7); // 2026-03
         let monthData = allMonthsData[currentMonth] || {income: 32500, saving: 0};
         
+        // 公积金配置
+        const GONGJIJIN_MONTHLY = 7530; // 每月公积金金额
+        
         let selectedCategory = '';
         let selectedIcon = '';
         let editType = '';
@@ -584,7 +587,8 @@
             '护肤': '💄',
             '服装': '👗',
             '宠物': '🐱',
-            '其他': '📦'
+            '其他': '📦',
+            '公积金': '🏦'
         };
 
         const categoryColors = {
@@ -593,11 +597,13 @@
             '护肤': '#fce4ec',
             '服装': '#f3e5f5',
             '宠物': '#fff3e0',
-            '其他': '#f5f5f5'
+            '其他': '#f5f5f5',
+            '公积金': '#e8f5e9'
         };
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
+            checkMonthlyGongjijin(); // 检查公积金
             loadMonthData();
             loadRecords();
             updateStats();
@@ -612,6 +618,53 @@
                 };
             });
         });
+
+        // 检查并自动计入公积金
+        function checkMonthlyGongjijin() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth(); // 0-11
+            
+            // 从4月开始(month >= 3)
+            if (year < 2026 || (year === 2026 && month < 3)) {
+                return; // 2026年3月之前不处理
+            }
+            
+            // 获取当前月份
+            const currentMonthStr = today.toISOString().substring(0, 7);
+            
+            // 检查是否是月底最后一天
+            const lastDay = new Date(year, month + 1, 0).getDate(); // 当月最后一天
+            const currentDay = today.getDate();
+            
+            if (currentDay === lastDay) {
+                // 检查本月是否已经计入公积金
+                const gongjijinKey = 'gongjijin_' + currentMonthStr;
+                const alreadyAdded = localStorage.getItem(gongjijinKey);
+                
+                if (!alreadyAdded) {
+                    // 自动添加公积金记录
+                    const gongjijinRecord = {
+                        id: Date.now(),
+                        date: today.toISOString().split('T')[0],
+                        time: '23:59',
+                        category: '公积金',
+                        icon: '🏦',
+                        amount: -GONGJIJIN_MONTHLY, // 负数表示入账
+                        note: `${currentMonthStr} 公积金入账`
+                    };
+                    
+                    records.unshift(gongjijinRecord);
+                    localStorage.setItem('finance_records', JSON.stringify(records));
+                    localStorage.setItem(gongjijinKey, 'true');
+                    
+                    // 自动累加到年度资产
+                    updateStats();
+                    
+                    showToast('🏦 公积金已自动入账: ¥' + GONGJIJIN_MONTHLY);
+                }
+            }
+        }
 
         // 切换资产隐私显示
         function toggleAssetPrivacy(id) {
@@ -735,18 +788,25 @@
                 return;
             }
 
-            container.innerHTML = todayRecords.map(r => `
-                <div class="record-item">
-                    <div class="record-icon" style="background: ${categoryColors[r.category] || '#f5f5f5'}">
-                        ${r.icon}
+            container.innerHTML = todayRecords.map(r => {
+                const isIncome = r.amount < 0; // 负数表示入账
+                const displayAmount = Math.abs(r.amount);
+                const amountColor = isIncome ? '#4caf50' : '#f5576c';
+                const amountPrefix = isIncome ? '+' : '-';
+                
+                return `
+                    <div class="record-item">
+                        <div class="record-icon" style="background: ${categoryColors[r.category] || '#f5f5f5'}">
+                            ${r.icon}
+                        </div>
+                        <div class="record-info">
+                            <div class="record-desc">${r.note}</div>
+                            <div class="record-time">${r.time}</div>
+                        </div>
+                        <div class="record-amount" style="color: ${amountColor}">${amountPrefix}¥${displayAmount.toFixed(0)}</div>
                     </div>
-                    <div class="record-info">
-                        <div class="record-desc">${r.note}</div>
-                        <div class="record-time">${r.time}</div>
-                    </div>
-                    <div class="record-amount">-¥${r.amount.toFixed(0)}</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // 更新统计
@@ -769,13 +829,18 @@
             // 计算累计存款(所有月份的存款总和)
             const baseAssets = 610000; // 初始资产61万
             let totalSaved = 0;
+            let totalGongjijin = 0;
             
             // 累加所有月份的存款
             for (const month in allMonthsData) {
                 totalSaved += allMonthsData[month].saving || 0;
             }
             
-            const currentAssets = baseAssets + totalSaved; // 当前总资产
+            // 累加所有公积金入账(负数表示入账)
+            const gongjijinRecords = records.filter(r => r.category === '公积金' && r.amount < 0);
+            totalGongjijin = gongjijinRecords.reduce((sum, r) => sum + Math.abs(r.amount), 0);
+            
+            const currentAssets = baseAssets + totalSaved + totalGongjijin; // 当前总资产
             const targetAssets = 1000000; // 目标100万
             const gapAssets = targetAssets - currentAssets; // 剩余缺口
             const progress = (currentAssets / targetAssets * 100).toFixed(0); // 进度百分比
@@ -858,18 +923,25 @@
                 return;
             }
 
-            listContainer.innerHTML = monthRecords.map(r => `
-                <div class="record-item">
-                    <div class="record-icon" style="background: ${categoryColors[r.category] || '#f5f5f5'}">
-                        ${r.icon}
+            listContainer.innerHTML = monthRecords.map(r => {
+                const isIncome = r.amount < 0;
+                const displayAmount = Math.abs(r.amount);
+                const amountColor = isIncome ? '#4caf50' : '#f5576c';
+                const amountPrefix = isIncome ? '+' : '-';
+                
+                return `
+                    <div class="record-item">
+                        <div class="record-icon" style="background: ${categoryColors[r.category] || '#f5f5f5'}">
+                            ${r.icon}
+                        </div>
+                        <div class="record-info">
+                            <div class="record-desc">${r.note}</div>
+                            <div class="record-time">${r.date} ${r.time}</div>
+                        </div>
+                        <div class="record-amount" style="color: ${amountColor}">${amountPrefix}¥${displayAmount.toFixed(0)}</div>
                     </div>
-                    <div class="record-info">
-                        <div class="record-desc">${r.note}</div>
-                        <div class="record-time">${r.date} ${r.time}</div>
-                    </div>
-                    <div class="record-amount">-¥${r.amount.toFixed(0)}</div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // 关闭历史记录
