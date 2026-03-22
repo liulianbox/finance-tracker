@@ -511,6 +511,8 @@
         <input type="text" id="note" placeholder="备注 (可选)">
         <button class="btn-primary" onclick="saveRecord()">💾 保存记录</button>
         <button class="btn-secondary" onclick="showHistory()">📊 查看历史消费流水</button>
+        <button class="btn-secondary" onclick="exportData()">💾 导出数据备份</button>
+        <button class="btn-secondary" onclick="importData()">📂 导入数据恢复</button>
         
         <div class="records-list" id="recordsList">
             <div class="empty">暂无记录，开始记账吧!</div>
@@ -571,7 +573,7 @@
         // 改进: 支持多月数据存储
         let allMonthsData = JSON.parse(localStorage.getItem('all_months_data') || '{}');
         const currentMonth = new Date().toISOString().substring(0, 7); // 2026-03
-        let monthData = allMonthsData[currentMonth] || {income: 32500, saving: 0};
+        let monthData = allMonthsData[currentMonth] || {income: 0, saving: 0};
         
         // 公积金配置
         const GONGJIJIN_MONTHLY = 7530; // 每月公积金金额
@@ -603,6 +605,7 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
+            autoBackup(); // 自动备份
             checkMonthlyGongjijin(); // 检查公积金
             loadMonthData();
             loadRecords();
@@ -689,6 +692,14 @@
 
         // 加载本月数据
         function loadMonthData() {
+            // 确保本月数据存在,如果不存在则初始化为0
+            if (!allMonthsData[currentMonth]) {
+                monthData = {income: 0, saving: 0};
+                allMonthsData[currentMonth] = monthData;
+                localStorage.setItem('all_months_data', JSON.stringify(allMonthsData));
+                console.log('初始化本月数据:', currentMonth);
+            }
+            
             document.getElementById('monthIncome').textContent = monthData.income.toLocaleString();
             document.getElementById('monthSaving').textContent = monthData.saving.toLocaleString();
         }
@@ -956,6 +967,111 @@
             toast.textContent = message;
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 2000);
+        }
+
+        // 导出数据
+        function exportData() {
+            const data = {
+                records: records,
+                allMonthsData: allMonthsData,
+                exportTime: new Date().toISOString(),
+                version: '1.0'
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `finance-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('✅ 数据已导出到下载文件夹');
+        }
+
+        // 导入数据
+        function importData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        if (!data.records || !data.allMonthsData) {
+                            showToast('❌ 文件格式不正确');
+                            return;
+                        }
+                        
+                        // 确认导入
+                        if (!confirm(`确定要恢复数据吗?\n将覆盖当前所有记录!\n\n导出时间: ${data.exportTime || '未知'}\n记录条数: ${data.records.length}`)) {
+                            return;
+                        }
+                        
+                        // 恢复数据
+                        records = data.records || [];
+                        allMonthsData = data.allMonthsData || {};
+                        monthData = allMonthsData[currentMonth] || {income: 0, saving: 0};
+                        
+                        // 保存到 localStorage
+                        localStorage.setItem('finance_records', JSON.stringify(records));
+                        localStorage.setItem('all_months_data', JSON.stringify(allMonthsData));
+                        
+                        // 刷新显示
+                        loadMonthData();
+                        loadRecords();
+                        updateStats();
+                        
+                        showToast('✅ 数据已成功恢复');
+                    } catch (err) {
+                        showToast('❌ 文件解析失败: ' + err.message);
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // 自动备份功能(每次加载时备份)
+        function autoBackup() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const backupKey = 'finance_backup_' + today;
+                
+                // 检查今天是否已备份
+                const existingBackup = localStorage.getItem(backupKey);
+                if (!existingBackup) {
+                    const backupData = {
+                        records: records,
+                        allMonthsData: allMonthsData,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem(backupKey, JSON.stringify(backupData));
+                    console.log('✅ 自动备份完成:', today);
+                }
+                
+                // 清理7天前的备份
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('finance_backup_')) {
+                        const dateStr = key.replace('finance_backup_', '');
+                        const backupDate = new Date(dateStr);
+                        const daysDiff = (Date.now() - backupDate.getTime()) / (1000 * 60 * 60 * 24);
+                        if (daysDiff > 7) {
+                            localStorage.removeItem(key);
+                            console.log('🗑️ 清理旧备份:', dateStr);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('自动备份失败:', err);
+            }
         }
     </script>
 </body>
